@@ -102,15 +102,15 @@ hazards:
     minmax_ref_scenario: RCP85
 
   TC:
-    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TC/zarrs/processed_unscored/TC_windspeed.zarr/
-    variable: windspeed
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TC/zarrs/processed_unscored/TC_windspeed_50_m_s.zarr/
+    variable: TC_windspeed_50_m_s
     type: standard
     minmax_ref_scenario: RCP85
     minmax_ref_time: St    # only RCP85/St available — no Mt/Lt
 
   TS:
-    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TS/zarrs/processed_unscored/TS_windspeed.zarr/
-    variable: windspeed
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TS/zarrs/processed_unscored/TS_windspeed_18_m_s.zarr/
+    variable: TS_windspeed_18_m_s
     type: standard
     minmax_ref_scenario: RCP85
     minmax_ref_time: St    # only RCP85/St available — no Mt/Lt

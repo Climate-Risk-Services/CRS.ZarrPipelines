@@ -133,8 +133,8 @@ Dockerfile                       # Single image for both Service and Job
 | HP  | Heavy Precipitation | standard | `extremes` (metric `p95`, ×100) | raw is 0–1 fraction; thresholds expect 0–100 |
 | LS  | Landslide | special_ls | `ari`, `susceptibility` | score(ARI) × score(susceptibility) → score(final); staged zarr writes |
 | SUB | Subsidence | sub | `subsidence` | raw ×2 before 10-point scoring |
-| TC  | Tropical Cyclone | standard | `windspeed` | ⚠ data has corrupted scenario coords — needs regeneration |
-| TS  | Tropical Storm | standard | `windspeed` | ⚠ data has duplicate scenario coords — needs regeneration |
+| TC  | Tropical Cyclone | standard | `TC_windspeed_50_m_s` | |
+| TS  | Tropical Storm | standard | `TS_windspeed_18_m_s` | |
 | WF  | Wildfire | special_wf | `burnability`, `fwi` | burnability × FWI composite → score |
 | WS  | Water Stress | standard | `availability_vs_demand` | |
 
@@ -493,7 +493,6 @@ gcloud projects add-iam-policy-binding $PROJECT \
 
 ## Known limitations / next steps
 
-- **TC and TS data** — source zarrs have corrupted scenario coordinates (`TC_windspeed.zarr`: scenario is `['RCP85RCP85', '']`; `TS_windspeed.zarr`: both values are `'RCP85'`) and are missing `Mt`/`Lt` time periods. Both need to be regenerated before they can run through the pipeline.
 - **adm0 aggregations** — large countries (RUS, USA, CAN) exceed worker RAM at LS resolution even with float16 (USA ≈ 38 GB slice). Two approaches under consideration: (1) spatial tiling using adm1 bboxes with additive sum/count stats, (2) e2-highmem-32 workers for an adm0-specific cluster. CF/RF adm0 tiling is more complex (coastline denominator must also be tiled).
 - **RF/CF 10-point quantile bins** — `q20/q40/q60/q80` for scale `"10"` are `null` in `pipeline.yaml` and must be calibrated from the full global zarr before 10-point custom aggregation works.
 - **adm2** — parquet conversion not yet run; uncomment in `run_on_coiled()` when adm0/adm1 verified.
