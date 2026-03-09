@@ -133,8 +133,8 @@ Dockerfile                       # Single image for both Service and Job
 | HP  | Heavy Precipitation | standard | `extremes` (metric `p95`, ×100) | raw is 0–1 fraction; thresholds expect 0–100 |
 | LS  | Landslide | special_ls | `ari`, `susceptibility` | score(ARI) × score(susceptibility) → score(final); staged zarr writes |
 | SUB | Subsidence | sub | `subsidence` | raw ×2 before 10-point scoring |
-| TC  | Tropical Cyclone | standard | `TC_windspeed_50_m_s` | |
-| TS  | Tropical Storm | standard | `TS_windspeed_18_m_s` | |
+| TC  | Tropical Cyclone | standard | `return_period_windspeed_50_m_s` | |
+| TS  | Tropical Storm | standard | `return_period_windspeed_18_m_s` | |
 | WF  | Wildfire | special_wf | `burnability`, `fwi` | burnability × FWI composite → score |
 | WS  | Water Stress | standard | `availability_vs_demand` | |
 
@@ -172,6 +172,15 @@ For **special hazards**, the 0–100 scale normalises the intermediate composite
 **Aggregation behaviour per scale:**
 - Scales `"5"` and `"10"` — standard xvec zonal stats (mean/max/stdev) for all hazards; CF and RF additionally use the RP-weighted custom path.
 - Scale `"100"` — xvec zonal stats (mean/max/stdev) for all hazards including CF and RF (RP-weighting not applied to continuous 0–100 values).
+
+### NaN / no-exposure policy
+
+Pixels with no data in the input Zarr (outside a hazard's geographic scope — e.g. TC/TS in polar regions, CF inland) are treated as **0 = no exposure / not applicable** throughout the pipeline:
+
+- **Aggregation** (`gadm_aggregations.py`) — standard hazards fill `NaN → 0` before xvec zonal stats, so unexposed pixels reduce the province mean proportionally rather than being excluded. RF/CF are unaffected (their RP-weighted custom path handles NaN explicitly via coastal/pixel denominators).
+- **Combine** (`combine.py`) — any province missing from a per-hazard CSV (fully unexposed country) gets `0`, not `-9999`. The `"100"` normalisation bounds and row masks also exclude `0` so unexposed countries do not anchor the range.
+
+This means `0` = below the 1–5 / 1–10 scale (not measured), and `1` = lowest measured risk within the hazard zone. Downstream multi-hazard averaging can treat `0` as a true zero contribution.
 
 ### Float16 throughout
 
@@ -485,7 +494,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
 | **Prefect flow** (`pipeline_flow.py`) | No Prefect worker deployed; flows run directly in-process only |
 | **FastAPI** (`app/api/`) | Not deployed to Cloud Run; local `uv run python main.py` works but job launch calls the Cloud Run Jobs API which requires a deployed Job |
 | **Cloud Run Job** (`job_entrypoint.py`, `Dockerfile`) | Image not built or pushed; Job not created in GCP |
-| **Full end-to-end pipeline** (score → agg → combine, all 14 hazards) | TC and TS blocked on data regeneration (see below); remaining 12 not run together |
+| **Full end-to-end pipeline** (score → agg → combine, all 14 hazards) | Not run together yet; remaining 12 hazards not verified end-to-end |
 | **adm0 aggregation** | Implemented but large countries (RUS, USA) exceed worker RAM — see workaround options below |
 | **adm2 aggregation** | Parquet files not yet converted; code path exists but commented out |
 

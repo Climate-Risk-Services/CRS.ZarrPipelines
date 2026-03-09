@@ -223,26 +223,22 @@ def _build_combined(
     # Join GADM metadata (left so every province/country row is present)
     result = gadm_meta.merge(merged, on=id_col, how="left")
 
-    # Fill missing hazard scores with -9999
+    # Fill missing hazard scores with 0 (no exposure / not applicable)
     hazard_cols = [c for c in result.columns if c not in meta_cols]
-    result[hazard_cols] = result[hazard_cols].fillna(-9999)
+    result[hazard_cols] = result[hazard_cols].fillna(0)
 
     # Round scores: integers for 5-pt/10-pt mean/max; floats (2 dp) for 100-pt or std
     if round_to_int and stat_col in ("score_mean", "score_max"):
         for col in hazard_cols:
             if result[col].dtype.kind == "f":
-                result[col] = result[col].where(
-                    result[col] == -9999, result[col].round()
-                ).astype(int)
+                result[col] = result[col].round().astype(int)
     else:
         dp = 2 if stat_col in ("score_mean", "score_max") else 4
         for col in hazard_cols:
             if result[col].dtype.kind == "f":
-                result[col] = result[col].where(
-                    result[col] == -9999, result[col].round(dp)
-                )
+                result[col] = result[col].round(dp)
 
-    # Fixed schema: always 14 hazards × 4 time periods, missing → -9999
+    # Fixed schema: always 14 hazards × 4 time periods, missing → 0 (no exposure)
     ordered_hazard_cols = [
         f"{code}_{tp}"
         for code in ALL_HAZARD_CODES
@@ -250,7 +246,7 @@ def _build_combined(
     ]
     for col in ordered_hazard_cols:
         if col not in result.columns:
-            result[col] = -9999
+            result[col] = 0
 
     present_meta = [c for c in meta_cols if c in result.columns]
     return result[present_meta + ordered_hazard_cols]
@@ -275,11 +271,11 @@ def _compute_hundred_bounds(
         lt_col = f"{code}_Lt"
         lo = hi = None
         if not rcp45_df.empty and cc_col in rcp45_df.columns:
-            valid = rcp45_df.loc[rcp45_df[cc_col] != -9999, cc_col]
+            valid = rcp45_df.loc[rcp45_df[cc_col] != 0, cc_col]
             if not valid.empty:
                 lo = float(valid.min())
         if not rcp85_df.empty and lt_col in rcp85_df.columns:
-            valid = rcp85_df.loc[rcp85_df[lt_col] != -9999, lt_col]
+            valid = rcp85_df.loc[rcp85_df[lt_col] != 0, lt_col]
             if not valid.empty:
                 hi = float(valid.max())
         if lo is not None and hi is not None and hi != lo:
@@ -304,7 +300,7 @@ def _normalize_hundred_cols(df: pd.DataFrame, hazard_bounds: dict) -> pd.DataFra
         if len(parts) != 2 or parts[0] not in hazard_bounds:
             continue
         lo, hi = hazard_bounds[parts[0]]
-        mask = df[col] != -9999
+        mask = df[col] != 0
         valid = df.loc[mask, col]
         if valid.empty:
             continue

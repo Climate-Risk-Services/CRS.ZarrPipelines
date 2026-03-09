@@ -535,6 +535,7 @@ def _aggregate_partition(
             df = pd.concat(part_dfs, ignore_index=True) if part_dfs else pd.DataFrame()
         else:
             ds_loaded = _apply_coastline_mask(ds_loaded, hazard_code)
+            ds_loaded = ds_loaded.fillna(0)   # NaN = no exposure → counts as 0 in mean
             df = _run_zonal_stats(province, ds_loaded, hazard_code, gadm_level)
 
         if df is not None and not df.empty:
