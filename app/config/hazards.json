@@ -1,0 +1,79 @@
+{
+  "CF": {
+    "filename": "CF_inundation_50cm.zarr",
+    "folder": "processed_unscored",
+    "variable": "return_period_0_5_m",
+    "nodata_as_zero": true
+  },
+  "RF": {
+    "filename": "RF_inundation_50cm.zarr",
+    "folder": "processed_unscored",
+    "variable": "return_period_0_5_m",
+    "nodata_as_zero": true
+  },
+  "HS": {
+    "filename": "HS.zarr",
+    "folder": "processed_unscored",
+    "variable": "utci"
+  },
+  "CS": {
+    "filename": "CS.zarr",
+    "folder": "processed_unscored",
+    "variable": "utci"
+  },
+  "WF": {
+    "filename": "WF.zarr",
+    "folder": "processed_unscored",
+    "variable": "fwi",
+    "secondary_variable": "burnability"
+  },
+  "WS": {
+    "filename": "WS.zarr",
+    "folder": "processed_unscored",
+    "variable": "availabilityvsdemand"
+  },
+  "DR": {
+    "filename": "DR.zarr",
+    "folder": "processed_unscored",
+    "variable": "drought_events_per_decade"
+  },
+  "ER": {
+    "filename": "ER.zarr",
+    "folder": "processed_unscored",
+    "variable": "soil_erosion"
+  },
+  "TC": {
+    "filename": "TC_windspeed.zarr",
+    "folder": "processed_unscored",
+    "variable": "windspeed",
+    "nodata_as_zero": true
+  },
+  "TS": {
+    "filename": "TS_windspeed.zarr",
+    "folder": "processed_unscored",
+    "variable": "windspeed",
+    "nodata_as_zero": true
+  },
+  "HP": {
+    "filename": "HP.zarr",
+    "folder": "processed_unscored",
+    "variable": "extremes",
+    "unit_conversion_factor": 100
+  },
+  "CER": {
+    "filename": "CER.zarr",
+    "folder": "processed_unscored",
+    "variable": "cropland_erosion"
+  },
+  "LS": {
+    "filename": "LS.zarr",
+    "folder": "processed_unscored",
+    "variable": "ari",
+    "secondary_variable": "susceptibility"
+  },
+  "SUB": {
+    "filename": "SUB.zarr",
+    "folder": "processed_scored",
+    "variable": "subsidence"
+  }
+}

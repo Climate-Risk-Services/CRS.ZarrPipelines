@@ -1,0 +1,200 @@
+gcs:
+  output_zarr_base: gs://crs_climate_data_public/production_test/hazard_scores
+  csv_output: gs://crs_climate_data_public/production_test/aggregations
+  combined_output: gs://crs_climate_data_public/production_test/aggregations/combined
+  gadm_parquet_base: gs://crs_climate_data_public/GADM/parquet
+  tmp_base: gs://crs_climate_data_public/production_test/tmp
+
+gadm:
+  source_l0: gs://crs_climate_data_public/GADM/GADM/gadm410/gadm_410levels__adm_0.gpkg
+  source_l1: gs://crs_climate_data_public/GADM/GADM/gadm410/gadm_410levels__adm_1.gpkg
+  coastline: gs://crs_climate_data_public/GADM/GADM/Coastline/hyd_glo_msk_30s.tif
+  parquet:
+    adm0: gs://crs_climate_data_public/GADM/parquet/adm0.parquet
+    adm1: gs://crs_climate_data_public/GADM/parquet/adm1.parquet
+    adm1_base: gs://crs_climate_data_public/GADM/parquet/adm1         # per-country — loaded by workers
+    adm2_base: gs://crs_climate_data_public/GADM/parquet/adm2
+
+coiled:
+  score:
+    name: crs-score
+    scheduler_vm_types: e2-standard-8
+    worker_vm_types: e2-standard-8    # CPU/network bound — chunk processing
+    region: europe-west4
+    shutdown_on_close: true           # fully shut down after all scoring tasks complete
+    min_workers: 25
+    max_workers: 60
+
+  agg:
+    name: crs-agg
+    scheduler_vm_types: e2-standard-8
+    worker_vm_types: e2-highmem-16    # memory bound — province zarr slices
+    region: europe-west4
+    shutdown_on_close: true
+    min_workers: 10
+    max_workers: 30
+
+# Per-hazard input zarr paths and data variable names
+# variable: the primary DataArray variable to score (for standard hazards)
+hazards:
+  ER:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/ER/zarrs/processed_unscored/ER.zarr/
+    variable: soil_erosion
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  CER:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/CER/zarrs/processed_unscored/CER.zarr/
+    variable: cropland_erosion
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  CF:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/CF/zarrs/processed_unscored/CF_inundation_50cm.zarr/
+    variable: return_period_0_5_m
+    protection_variable: flood_protection
+    type: special_cf
+    minmax_ref_scenario: RCP85
+
+  RF:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/RF/zarrs/processed_unscored/RF_inundation_50cm.zarr/
+    variable: return_period_0_5_m
+    protection_variable: flood_protection
+    type: special_rf
+    minmax_ref_scenario: RCP85
+
+  CS:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/CS/zarrs/processed_unscored/CS.zarr/
+    variable: utci
+    metric_select: p5
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  HS:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/HS/zarrs/processed_unscored/HS.zarr/
+    variable: utci
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  DR:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/DR/zarrs/processed_unscored/DR.zarr/
+    variable: drought_events_per_decade
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  HP:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/HP/zarrs/processed_unscored/HP.zarr/
+    variable: extremes
+    metric_select: p95
+    scale_factor: 100   # data is 0-1 fraction; thresholds expect 0-100 percentage
+    type: standard
+    minmax_ref_scenario: RCP85
+
+  LS:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/LS/zarrs/processed_unscored/LS.zarr/
+    type: special_ls
+    minmax_ref_scenario: RCP85
+
+  SUB:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/SUB/zarrs/processed_scored/SUB.zarr
+    variable: subsidence
+    type: sub
+    minmax_ref_scenario: RCP85
+
+  TC:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TC/zarrs/processed_unscored/TC_windspeed.zarr/
+    variable: windspeed
+    type: standard
+    minmax_ref_scenario: RCP85
+    minmax_ref_time: St    # only RCP85/St available — no Mt/Lt
+
+  TS:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/TS/zarrs/processed_unscored/TS_windspeed.zarr/
+    variable: windspeed
+    type: standard
+    minmax_ref_scenario: RCP85
+    minmax_ref_time: St    # only RCP85/St available — no Mt/Lt
+
+  WF:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/WF/zarrs/processed_unscored/WF.zarr/
+    type: special_wf
+    minmax_ref_scenario: RCP85
+
+  WS:
+    input: gs://crs_climate_data_public/PHYSICAL_HAZARDS_WORKING_FOLDER/WS/zarrs/processed_unscored/WS.zarr/
+    variable: availabilityvsdemand
+    type: standard
+    minmax_ref_scenario: RCP85
+
+custom_aggregation:
+  # Representative RP weights per score value (1/RP), keyed by scoring scale.
+  # 5-point: 5 RP bands; 10-point: 10 RP bands (same midpoint-RP logic).
+  rp_weights:
+    '5':
+      1: 0.001       # RP > 1000,    rep RP 1000
+      2: 0.001333    # RP 250-1000,  rep RP 750
+      3: 0.005714    # RP 50-250,    rep RP 175
+      4: 0.033333    # RP 5-50,      rep RP 30
+      5: 0.4         # RP < 5,       rep RP 2.5
+    '10':
+      1: 0.001       # RP > 1000,    rep RP 1000
+      2: 0.001333    # RP 500-1000,  rep RP 750
+      3: 0.002667    # RP 250-500,   rep RP 375
+      4: 0.005714    # RP 100-250,   rep RP 175
+      5: 0.013333    # RP 50-100,    rep RP 75
+      6: 0.026667    # RP 25-50,     rep RP 37.5
+      7: 0.057143    # RP 10-25,     rep RP 17.5
+      8: 0.133333    # RP 5-10,      rep RP 7.5
+      9: 0.285714    # RP 2-5,       rep RP 3.5
+      10: 1.0        # RP < 2,       rep RP 1
+
+  # Quantile bins for re-scoring weighted_risk → final score.
+  # Calibrated from global data distribution per hazard, level, and scale.
+  # 10-point bins are TBD — must be computed from full Zarr data.
+  RF:
+    adm1:
+      '5':
+        q20: 0.0000788
+        q40: 0.000287
+        q60: 0.000853
+        q80: 0.002910
+      '10':
+        q20: null  # calibrate from data
+        q40: null
+        q60: null
+        q80: null
+    adm0:
+      '5':
+        q20: 0.0000788
+        q40: 0.000287
+        q60: 0.000853
+        q80: 0.002910
+      '10':
+        q20: null  # calibrate from data
+        q40: null
+        q60: null
+        q80: null
+
+  CF:
+    adm1:
+      '5':
+        q20: 0.011421
+        q40: 0.023441
+        q60: 0.054597
+        q80: 0.133054
+      '10':
+        q20: null  # calibrate from data
+        q40: null
+        q60: null
+        q80: null
+    adm0:
+      '5':
+        q20: 0.017636
+        q40: 0.035215
+        q60: 0.070596
+        q80: 0.137059
+      '10':
+        q20: null  # calibrate from data
+        q40: null
+        q60: null
+        q80: null

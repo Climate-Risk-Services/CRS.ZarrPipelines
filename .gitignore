@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.zarr/
+.python-version
+*.pyc
+.ipynb_checkpoints/
+.virtual_documents/
+
+# Virtual environments
+.venv
+
+# Claude Code
+.claude/
+GIT_SETUP.md
+CLAUDE.md
+plan.txt
+
+
+
+
+
+
+

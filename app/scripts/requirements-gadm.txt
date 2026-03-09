@@ -1,0 +1,6 @@
+geopandas
+gcsfs
+pyarrow
+fsspec
+dask
+distributed

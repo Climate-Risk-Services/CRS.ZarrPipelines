@@ -1,0 +1,47 @@
+# Prefect deployment config
+# Deploy with: uv run prefect deploy --all
+
+name: crs-zarrpipelines
+prefect-version: "3.x"
+
+build:
+  - prefect_docker.deployments.steps.build_docker_image:
+      id: build-image
+      requires: prefect-docker
+      image_name: europe-west4-docker.pkg.dev/YOUR_GCP_PROJECT/crs/zarrpipelines
+      tag: latest
+      dockerfile: Dockerfile
+
+push:
+  - prefect_docker.deployments.steps.push_docker_image:
+      requires: prefect-docker
+      image_name: "{{ build-image.image_name }}"
+      tag: "{{ build-image.tag }}"
+
+deployments:
+
+  - name: full-pipeline
+    version: "{{ build-image.tag }}"
+    entrypoint: app/flows/pipeline_flow.py:full_pipeline
+    work_pool:
+      name: crs-worker-pool        # created in Step 4
+    parameters:
+      scales: ["5", "10"]
+      gadm_level: 1
+    schedules: []                  # add cron here if needed, e.g.:
+    # schedules:
+    #   - cron: "0 6 * * 1"       # every Monday 06:00 UTC
+
+  - name: score-only
+    entrypoint: app/flows/pipeline_flow.py:score_only
+    work_pool:
+      name: crs-worker-pool
+    parameters:
+      scales: ["5", "10"]
+
+  - name: aggregate-only
+    entrypoint: app/flows/pipeline_flow.py:aggregate_only
+    work_pool:
+      name: crs-worker-pool
+      parameters:
+        gadm_level: 1
