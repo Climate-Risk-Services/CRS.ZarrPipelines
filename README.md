@@ -479,7 +479,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
 |-----------|--------|
 | Scoring logic — `score_zarr_multi`, `ScoringConfig` | ✅ unit-tested (`uv run pytest tests/`) |
 | `score_hazard()` — all standard hazards | ✅ runs locally against real GCS Zarrs |
-| `score_hazard()` — special hazards (LS, WF, RF, CF) | ✅ implemented; LS and WF confirmed end-to-end |
+| `score_hazard()` — special hazards (LS, WF, RF, CF) | ✅ implemented; LS and WF confirmed end-to-end; RF and CF scoring implemented but aggregation under development |
 | Smart zarr merge (region-write / append / rewrite) | ✅ tested for all merge cases |
 | `_aggregate_partition()` — single country, adm1 | ✅ tested (NGA and others) |
 | `aggregate_gadm()` — full adm1 via Coiled | ✅ aggregation runs completing |
@@ -503,5 +503,6 @@ gcloud projects add-iam-policy-binding $PROJECT \
 ## Known limitations / next steps
 
 - **adm0 aggregations** — large countries (RUS, USA, CAN) exceed worker RAM at LS resolution even with float16 (USA ≈ 38 GB slice). Two approaches under consideration: (1) spatial tiling using adm1 bboxes with additive sum/count stats, (2) e2-highmem-32 workers for an adm0-specific cluster. CF/RF adm0 tiling is more complex (coastline denominator must also be tiled).
+- **RF/CF aggregation** — custom RP-weighted aggregation (coastal pixel denominator for CF, total pixel count for RF) is implemented but not yet end-to-end verified. Scoring works; aggregation is under active development.
 - **RF/CF 10-point quantile bins** — `q20/q40/q60/q80` for scale `"10"` are `null` in `pipeline.yaml` and must be calibrated from the full global zarr before 10-point custom aggregation works.
 - **adm2** — parquet conversion not yet run; uncomment in `run_on_coiled()` when adm0/adm1 verified.

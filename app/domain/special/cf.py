@@ -16,6 +16,7 @@ from pathlib import Path
 import logging
 
 import gcsfs
+import numpy as np
 import xarray as xr
 import yaml
 
@@ -117,7 +118,12 @@ def score_cf(
             raw_100 = score_zarr_minmax(inundation_ds["inundation"], ref_scenario=ref_scenario, ref_time=ref_time)
             adjusted_100 = (raw_100["score"] - protection * 20).clip(min=0).astype("float16")
             logger.info(f"  [CF] Checkpointing minmax100 → {minmax_path}")
-            adjusted_100.rename("score").to_dataset().to_zarr(minmax_path, mode="w")
+            ds_100 = adjusted_100.rename("score").to_dataset()
+            ds_100 = ds_100.assign_coords(
+                {c: np.array(ds_100[c].values.tolist())
+                 for c in ds_100.coords if ds_100[c].dtype.kind in ("U", "O", "S")}
+            )
+            ds_100.to_zarr(minmax_path, mode="w")
         final_100 = xr.open_zarr(minmax_path)
         final_100 = final_100.expand_dims("scoring").assign_coords(scoring=["100"])
         results.append(final_100)
