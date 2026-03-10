@@ -71,7 +71,16 @@ def score_wf(
         logger.info(f"  [WF] Stage 1 skipped — reusing existing tmp composite: {composite_path}")
     else:
         logger.info(f"  [WF] Stage 1: multiplying burnability × fwi → {composite_path}")
-        (ds["burnability"] * ds["fwi"]).rename("score").to_dataset().to_zarr(composite_path, mode="w")
+        # Fill FWI coastal gaps (25 km cells clipped at coast leave NaN at valid 1 km land pixels).
+        # ffill+bfill with limit=30 covers gaps up to ~25 km without rechunking the full dimension.
+        fwi_filled = (
+            ds["fwi"]
+            .ffill(dim="lon", limit=30).bfill(dim="lon", limit=30)
+            .ffill(dim="lat", limit=30).bfill(dim="lat", limit=30)
+        )
+        # Mask to 1 km susceptibility footprint — removes FWI bleed into ocean pixels.
+        composite = (ds["burnability"] * fwi_filled).where(ds["burnability"].notnull())
+        composite.rename("score").to_dataset().to_zarr(composite_path, mode="w")
         logger.info("  [WF] Stage 1 done")
 
     comp_ds = xr.open_zarr(composite_path)
