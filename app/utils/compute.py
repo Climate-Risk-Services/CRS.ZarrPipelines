@@ -24,7 +24,8 @@ def get_or_create_cluster(cluster_type: str = "score", backend: str = "coiled"):
     Args:
         cluster_type: 'score' or 'agg' — selects the coiled config block in pipeline.yaml.
                       'score' uses e2-standard-8 (CPU/network bound, zarr chunk processing).
-                      'agg'   uses e2-highmem-8  (memory bound, province zarr slices).
+                      'agg'        uses e2-highmem-16 (memory bound, province zarr slices).
+                      'agg_highmem' uses n2-highmem-32 (CF/RF only — coastline + RP zonal stats).
         backend: 'coiled' (default) or 'local'.
     """
     from dask.distributed import Client

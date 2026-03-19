@@ -62,6 +62,35 @@ def _shutdown_cluster(client: "dask.distributed.Client", cluster_type: str) -> N
         client.close()
 
 
+_HIGHMEM_AGG_HAZARDS = {"CF", "RF"}
+
+
+def _run_aggregations(hazard_codes: list, gadm_levels: list) -> None:
+    """Run aggregations, using the highmem cluster for CF/RF and standard agg for the rest."""
+    standard = [c for c in hazard_codes if c not in _HIGHMEM_AGG_HAZARDS]
+    highmem = [c for c in hazard_codes if c in _HIGHMEM_AGG_HAZARDS]
+
+    if standard:
+        agg_client = _start_cluster("agg")
+        try:
+            for code in standard:
+                logger.info(f"[{code}] aggregating...")
+                aggregate_hazard_task.submit(code, gadm_levels).result()
+                logger.info(f"[{code}] aggregation done")
+        finally:
+            _shutdown_cluster(agg_client, "agg")
+
+    if highmem:
+        highmem_client = _start_cluster("agg_highmem")
+        try:
+            for code in highmem:
+                logger.info(f"[{code}] aggregating (highmem)...")
+                aggregate_hazard_task.submit(code, gadm_levels).result()
+                logger.info(f"[{code}] aggregation done")
+        finally:
+            _shutdown_cluster(highmem_client, "agg_highmem")
+
+
 @flow(name="crs-full-pipeline", log_prints=True)
 def full_pipeline(
     scales: list = None,
@@ -70,8 +99,10 @@ def full_pipeline(
 ):
     """
     Score then aggregate all hazards sequentially (score→agg per hazard).
-    Uses two Coiled clusters: crs-score (e2-standard-8) for scoring,
-    crs-agg (e2-highmem-8) for aggregation.
+    Uses three Coiled clusters:
+      crs-score       (e2-standard-8)  — scoring
+      crs-agg         (e2-highmem-16)  — standard hazard aggregation
+      crs-agg-highmem (n2-highmem-32)  — CF/RF only (coastline + RP-weighted zonal stats)
 
     Args:
         scales: e.g. ['5', '10']. Defaults to ['5', '10'].
@@ -96,14 +127,7 @@ def full_pipeline(
     finally:
         _shutdown_cluster(score_client, "score")
 
-    agg_client = _start_cluster("agg")
-    try:
-        for code in hazard_codes:
-            logger.info(f"[{code}] aggregating...")
-            aggregate_hazard_task.submit(code, gadm_levels).result()
-            logger.info(f"[{code}] aggregation done")
-    finally:
-        _shutdown_cluster(agg_client, "agg")
+    _run_aggregations(hazard_codes, gadm_levels)
 
     logger.info("Combining all hazard CSVs into final outputs...")
     combine_task.submit(gadm_levels, scales).result()
@@ -136,14 +160,7 @@ def aggregate_only(gadm_levels: list = None, hazard_codes: list = None):
     if hazard_codes is None:
         hazard_codes = ALL_HAZARD_CODES
 
-    client = _start_cluster("agg")
-    try:
-        for code in hazard_codes:
-            logger.info(f"[{code}] aggregating...")
-            aggregate_hazard_task.submit(code, gadm_levels).result()
-            logger.info(f"[{code}] aggregation done")
-    finally:
-        _shutdown_cluster(client, "agg")
+    _run_aggregations(hazard_codes, gadm_levels)
 
 
 @flow(name="crs-combine-only", log_prints=True)

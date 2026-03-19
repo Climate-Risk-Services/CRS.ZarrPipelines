@@ -8,7 +8,7 @@ gcs:
 gadm:
   source_l0: gs://crs_climate_data_public/GADM/GADM/gadm410/gadm_410levels__adm_0.gpkg
   source_l1: gs://crs_climate_data_public/GADM/GADM/gadm410/gadm_410levels__adm_1.gpkg
-  coastline: gs://crs_climate_data_public/GADM/GADM/Coastline/hyd_glo_msk_30s.tif
+  coastline: gs://crs_climate_data_public/GADM/Coastline/hyd_glo_msk_30s.tif
   parquet:
     adm0: gs://crs_climate_data_public/GADM/parquet/adm0.parquet
     adm1: gs://crs_climate_data_public/GADM/parquet/adm1.parquet
@@ -33,6 +33,15 @@ coiled:
     shutdown_on_close: true
     min_workers: 10
     max_workers: 30
+
+  agg_highmem:
+    name: crs-agg-highmem
+    scheduler_vm_types: e2-standard-8
+    worker_vm_types: n2-highmem-32    # CF/RF only — coastline mask + RP-weighted zonal stats
+    region: europe-west4
+    shutdown_on_close: true
+    min_workers: 8
+    max_workers: 8
 
 # Per-hazard input zarr paths and data variable names
 # variable: the primary DataArray variable to score (for standard hazards)

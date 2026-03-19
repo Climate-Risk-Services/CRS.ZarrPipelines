@@ -183,7 +183,6 @@ def _custom_stats_for_scale(
     gadm_id_col: str,
     lat_dim: str,
     lon_dim: str,
-    custom_col: str,
     denominator_da: xr.DataArray = None,
 ) -> pd.DataFrame:
     """
@@ -192,6 +191,7 @@ def _custom_stats_for_scale(
     denominator_da: if provided, use its sum as denominator (CF coastal pixels);
                     otherwise use total valid-pixel count (RF).
     bins must be a dict with q20/q40/q60/q80 — all non-None.
+    Output columns: gadm_id, gid0, score_mean (RP-weighted final score), score_max.
     """
     weighted_da = _apply_rp_weights(score_da, rp_weights)
 
@@ -228,13 +228,16 @@ def _custom_stats_for_scale(
     df = df[df["stats"].isin(["mean", "max"])]
     df_wide = df.pivot_table(index="gadm_id", columns="stats", values="score").reset_index()
     df_wide.columns.name = None
+    df_wide = df_wide.rename(columns={"mean": "score_mean", "max": "score_max"})
 
-    custom_df = pd.DataFrame({
+    base_df = pd.DataFrame({
         "gadm_id": gadm[gadm_id_col].values,
         "gid0": gadm[GID_0].values,
-        custom_col: final_score.values,
     })
-    return custom_df.merge(df_wide, on="gadm_id", how="left")
+    merged = base_df.merge(df_wide, on="gadm_id", how="left")
+    # RP-weighted rescored value replaces the naive mean as the primary score
+    merged["score_mean"] = final_score.values
+    return merged
 
 
 def _run_rf_custom_stats(
@@ -272,7 +275,6 @@ def _run_rf_custom_stats(
             df = _custom_stats_for_scale(
                 gadm, slice_da, rp_weights, bins,
                 gadm_id_col, lat_dim, lon_dim,
-                custom_col="score_rf_custom",
             )
             for d, v in sel_dict.items():
                 df[d] = str(v)
@@ -332,7 +334,6 @@ def _run_cf_custom_stats(
             df = _custom_stats_for_scale(
                 gadm, slice_da, rp_weights, bins,
                 gadm_id_col, lat_dim, lon_dim,
-                custom_col="score_cf_custom",
                 denominator_da=coastal_da,
             )
             for d, v in sel_dict.items():
@@ -471,12 +472,19 @@ def _aggregate_partition(
     # Sort zarr coords once (lazy — no data loaded yet)
     ds = ds.sortby([lat_dim, lon_dim])
 
-    # Open coastline TIF once per country (not once per province) for CF
+    # Open coastline TIF once per country (not once per province) for CF.
+    # Clip to country bbox immediately so reindex_like works on a small tile, not the global TIF.
     coastline_opened = None
     if hazard_code == "CF":
         import rioxarray  # noqa: F401
         cfg = _pipeline_cfg()["gadm"]
-        coastline_opened = xr.open_dataset(cfg["coastline"], engine="rasterio").squeeze()
+        minx_c, miny_c, maxx_c, maxy_c = gadm.total_bounds
+        coastline_opened = (
+            xr.open_dataset(cfg["coastline"], engine="rasterio")
+            .squeeze()
+            .rio.clip_box(minx=minx_c - 1, miny=miny_c - 1, maxx=maxx_c + 1, maxy=maxy_c + 1)
+            .compute()
+        )
 
     # Process each province individually to bound peak memory per worker.
     # Large countries (RUS, CAN, USA) would OOM if loaded as a single bbox;
